@@ -2,7 +2,7 @@
  * angular-ui-bootstrap
  * http://angular-ui.github.io/bootstrap/
 
- * Version: 0.11.0-SNAPSHOT - 2014-04-16
+ * Version: 0.11.0-SNAPSHOT - 2014-04-21
  * License: MIT
  */
 angular.module("ui.bootstrap", ["ui.bootstrap.transition","ui.bootstrap.collapse","ui.bootstrap.accordion","ui.bootstrap.alert","ui.bootstrap.bindHtml","ui.bootstrap.buttons","ui.bootstrap.carousel","ui.bootstrap.position","ui.bootstrap.datepicker","ui.bootstrap.dropdown","ui.bootstrap.modal","ui.bootstrap.pagination","ui.bootstrap.tooltip","ui.bootstrap.popover","ui.bootstrap.progressbar","ui.bootstrap.rating","ui.bootstrap.tabs","ui.bootstrap.timepicker","ui.bootstrap.typeahead"]);
@@ -1821,260 +1821,245 @@ angular.module('ui.bootstrap.modal', ['ui.bootstrap.transition'])
 
 angular.module('ui.bootstrap.pagination', [])
 
-.controller('PaginationController', ['$scope', '$attrs', '$parse', '$interpolate', function ($scope, $attrs, $parse, $interpolate) {
-  var self = this,
-      ngModelCtrl = { $setViewValue: angular.noop }, // nullModelCtrl
+  .controller('PaginationController', ['$scope', '$attrs', '$parse', '$interpolate', function ($scope, $attrs, $parse, $interpolate) {
+    var self = this,
       setNumPages = $attrs.numPages ? $parse($attrs.numPages).assign : angular.noop;
 
-  this.init = function(ngModelCtrl_, defaultItemsPerPage) {
-    ngModelCtrl = ngModelCtrl_;
-
-    ngModelCtrl.$render = function() {
-      self.render();
+    this.init = function(defaultItemsPerPage) {
+      if ($attrs.itemsPerPage) {
+        $scope.$parent.$watch($parse($attrs.itemsPerPage), function(value) {
+          self.itemsPerPage = parseInt(value, 10);
+          $scope.totalPages = self.calculateTotalPages();
+        });
+      } else {
+        this.itemsPerPage = defaultItemsPerPage;
+      }
     };
 
-    if ($attrs.itemsPerPage) {
-      $scope.$parent.$watch($parse($attrs.itemsPerPage), function(value) {
-        self.itemsPerPage = parseInt(value, 10);
-        $scope.totalPages = self.calculateTotalPages();
-      });
-    } else {
-      this.itemsPerPage = defaultItemsPerPage;
-    }
-  };
+    this.noPrevious = function() {
+      return this.page === 1;
+    };
+    this.noNext = function() {
+      return this.page === $scope.totalPages;
+    };
 
-  this.noPrevious = function() {
-    return this.page === 1;
-  };
-  this.noNext = function() {
-    return this.page === $scope.totalPages;
-  };
+    this.isActive = function(page) {
+      return this.page === page;
+    };
 
-  this.isActive = function(page) {
-    return this.page === page;
-  };
+    this.calculateTotalPages = function() {
+      var totalPages = this.itemsPerPage < 1 ? 1 : Math.ceil($scope.totalItems / this.itemsPerPage);
+      return Math.max(totalPages || 0, 1);
+    };
 
-  this.calculateTotalPages = function() {
-    var totalPages = this.itemsPerPage < 1 ? 1 : Math.ceil($scope.totalItems / this.itemsPerPage);
-    return Math.max(totalPages || 0, 1);
-  };
+    this.getAttributeValue = function(attribute, defaultValue, interpolate) {
+      return angular.isDefined(attribute) ? (interpolate ? $interpolate(attribute)($scope.$parent) : $scope.$parent.$eval(attribute)) : defaultValue;
+    };
 
-  this.getAttributeValue = function(attribute, defaultValue, interpolate) {
-    return angular.isDefined(attribute) ? (interpolate ? $interpolate(attribute)($scope.$parent) : $scope.$parent.$eval(attribute)) : defaultValue;
-  };
-
-  this.render = function() {
-    this.page = parseInt(ngModelCtrl.$viewValue, 10) || 1;
-    if (this.page > 0 && this.page <= $scope.totalPages) {
-      $scope.pages = this.getPages(this.page, $scope.totalPages);
-    }
-  };
-
-  $scope.selectPage = function(page) {
-    if ( ! self.isActive(page) && page > 0 && page <= $scope.totalPages) {
-      ngModelCtrl.$setViewValue(page);
-      ngModelCtrl.$render();
-    }
-  };
-
-  $scope.$watch('page', function() {
-    self.render();
-  });
-
-  $scope.$watch('totalItems', function() {
-    $scope.totalPages = self.calculateTotalPages();
-  });
-
-  $scope.$watch('totalPages', function(value) {
-    setNumPages($scope.$parent, value); // Readonly variable
-
-    if ( self.page > value ) {
-      $scope.selectPage(value);
-    } else {
-      ngModelCtrl.$render();
-    }
-  });
-}])
-
-.constant('paginationConfig', {
-  itemsPerPage: 10,
-  boundaryLinks: false,
-  directionLinks: true,
-  firstText: 'First',
-  previousText: 'Previous',
-  nextText: 'Next',
-  lastText: 'Last',
-  rotate: true
-})
-
-.directive('pagination', ['$parse', 'paginationConfig', function($parse, config) {
-  return {
-    restrict: 'EA',
-    scope: {
-      totalItems: '='
-    },
-    require: ['pagination', '?ngModel'],
-    controller: 'PaginationController',
-    templateUrl: 'template/pagination/pagination.html',
-    replace: true,
-    link: function(scope, element, attrs, ctrls) {
-      var paginationCtrl = ctrls[0], ngModel = ctrls[1];
-
-      if (!ngModel) {
-         return; // do nothing if no ng-model
+    this.render = function() {
+      this.page = parseInt($scope.page, 10) || 1;
+      if (this.page > 0 && this.page <= $scope.totalPages) {
+        $scope.pages = this.getPages(this.page, $scope.totalPages);
       }
+    };
 
-      // Setup configuration parameters
-      var maxSize,
-      boundaryLinks  = paginationCtrl.getAttributeValue(attrs.boundaryLinks,  config.boundaryLinks      ),
-      directionLinks = paginationCtrl.getAttributeValue(attrs.directionLinks, config.directionLinks     ),
-      firstText      = paginationCtrl.getAttributeValue(attrs.firstText,      config.firstText,     true),
-      previousText   = paginationCtrl.getAttributeValue(attrs.previousText,   config.previousText,  true),
-      nextText       = paginationCtrl.getAttributeValue(attrs.nextText,       config.nextText,      true),
-      lastText       = paginationCtrl.getAttributeValue(attrs.lastText,       config.lastText,      true),
-      rotate         = paginationCtrl.getAttributeValue(attrs.rotate,         config.rotate);
-
-      paginationCtrl.init(ngModel, config.itemsPerPage);
-
-      if (attrs.maxSize) {
-        scope.$parent.$watch($parse(attrs.maxSize), function(value) {
-          maxSize = parseInt(value, 10);
-          paginationCtrl.render();
-        });
+    $scope.selectPage = function(page) {
+      if ( ! self.isActive(page) && page > 0 && page <= $scope.totalPages) {
+        $scope.page = page;
+        $scope.onSelectPage({ page: page });
       }
+    };
 
-      // Create page object used in template
-      function makePage(number, text, isActive, isDisabled) {
-        return {
-          number: number,
-          text: text,
-          active: isActive,
-          disabled: isDisabled
-        };
+    $scope.$watch('page', function() {
+      self.render();
+    });
+
+    $scope.$watch('totalItems', function() {
+      $scope.totalPages = self.calculateTotalPages();
+    });
+
+    $scope.$watch('totalPages', function(value) {
+      setNumPages($scope.$parent, value); // Readonly variable
+
+      if ( self.page > value ) {
+        $scope.selectPage(value);
+      } else {
+        self.render();
       }
+    });
+  }])
 
-      paginationCtrl.getPages = function(currentPage, totalPages) {
-        var pages = [];
+  .constant('paginationConfig', {
+    itemsPerPage: 10,
+    boundaryLinks: false,
+    directionLinks: true,
+    firstText: 'First',
+    previousText: 'Previous',
+    nextText: 'Next',
+    lastText: 'Last',
+    rotate: true
+  })
 
-        // Default page limits
-        var startPage = 1, endPage = totalPages;
-        var isMaxSized = ( angular.isDefined(maxSize) && maxSize < totalPages );
+  .directive('pagination', ['$parse', 'paginationConfig', function($parse, config) {
+    return {
+      restrict: 'EA',
+      scope: {
+        page: '=',
+        totalItems: '=',
+        onSelectPage:' &'
+      },
+      controller: 'PaginationController',
+      templateUrl: 'template/pagination/pagination.html',
+      replace: true,
+      link: function(scope, element, attrs, paginationCtrl) {
 
-        // recompute if maxSize
-        if ( isMaxSized ) {
-          if ( rotate ) {
-            // Current page is displayed in the middle of the visible ones
-            startPage = Math.max(currentPage - Math.floor(maxSize/2), 1);
-            endPage   = startPage + maxSize - 1;
+        // Setup configuration parameters
+        var maxSize,
+          boundaryLinks  = paginationCtrl.getAttributeValue(attrs.boundaryLinks,  config.boundaryLinks      ),
+          directionLinks = paginationCtrl.getAttributeValue(attrs.directionLinks, config.directionLinks     ),
+          firstText      = paginationCtrl.getAttributeValue(attrs.firstText,      config.firstText,     true),
+          previousText   = paginationCtrl.getAttributeValue(attrs.previousText,   config.previousText,  true),
+          nextText       = paginationCtrl.getAttributeValue(attrs.nextText,       config.nextText,      true),
+          lastText       = paginationCtrl.getAttributeValue(attrs.lastText,       config.lastText,      true),
+          rotate         = paginationCtrl.getAttributeValue(attrs.rotate,         config.rotate);
 
-            // Adjust if limit is exceeded
-            if (endPage > totalPages) {
-              endPage   = totalPages;
-              startPage = endPage - maxSize + 1;
+        paginationCtrl.init(config.itemsPerPage);
+
+        if (attrs.maxSize) {
+          scope.$parent.$watch($parse(attrs.maxSize), function(value) {
+            maxSize = parseInt(value, 10);
+            paginationCtrl.render();
+          });
+        }
+
+        // Create page object used in template
+        function makePage(number, text, isActive, isDisabled) {
+          return {
+            number: number,
+            text: text,
+            active: isActive,
+            disabled: isDisabled
+          };
+        }
+
+        paginationCtrl.getPages = function(currentPage, totalPages) {
+          var pages = [];
+
+          // Default page limits
+          var startPage = 1, endPage = totalPages;
+          var isMaxSized = ( angular.isDefined(maxSize) && maxSize < totalPages );
+
+          // recompute if maxSize
+          if ( isMaxSized ) {
+            if ( rotate ) {
+              // Current page is displayed in the middle of the visible ones
+              startPage = Math.max(currentPage - Math.floor(maxSize/2), 1);
+              endPage   = startPage + maxSize - 1;
+
+              // Adjust if limit is exceeded
+              if (endPage > totalPages) {
+                endPage   = totalPages;
+                startPage = endPage - maxSize + 1;
+              }
+            } else {
+              // Visible pages are paginated with maxSize
+              startPage = ((Math.ceil(currentPage / maxSize) - 1) * maxSize) + 1;
+
+              // Adjust last page if limit is exceeded
+              endPage = Math.min(startPage + maxSize - 1, totalPages);
             }
-          } else {
-            // Visible pages are paginated with maxSize
-            startPage = ((Math.ceil(currentPage / maxSize) - 1) * maxSize) + 1;
-
-            // Adjust last page if limit is exceeded
-            endPage = Math.min(startPage + maxSize - 1, totalPages);
-          }
-        }
-
-        // Add page number links
-        for (var number = startPage; number <= endPage; number++) {
-          var page = makePage(number, number, paginationCtrl.isActive(number), false);
-          pages.push(page);
-        }
-
-        // Add links to move between page sets
-        if ( isMaxSized && ! rotate ) {
-          if ( startPage > 1 ) {
-            var previousPageSet = makePage(startPage - 1, '...', false, false);
-            pages.unshift(previousPageSet);
           }
 
-          if ( endPage < totalPages ) {
-            var nextPageSet = makePage(endPage + 1, '...', false, false);
-            pages.push(nextPageSet);
+          // Add page number links
+          for (var number = startPage; number <= endPage; number++) {
+            var page = makePage(number, number, paginationCtrl.isActive(number), false);
+            pages.push(page);
           }
-        }
 
-        // Add previous & next links
-        if (directionLinks) {
-          var previousPage = makePage(currentPage - 1, previousText, false, paginationCtrl.noPrevious());
-          pages.unshift(previousPage);
+          // Add links to move between page sets
+          if ( isMaxSized && ! rotate ) {
+            if ( startPage > 1 ) {
+              var previousPageSet = makePage(startPage - 1, '...', false, false);
+              pages.unshift(previousPageSet);
+            }
 
-          var nextPage = makePage(currentPage + 1, nextText, false, paginationCtrl.noNext());
-          pages.push(nextPage);
-        }
+            if ( endPage < totalPages ) {
+              var nextPageSet = makePage(endPage + 1, '...', false, false);
+              pages.push(nextPageSet);
+            }
+          }
 
-        // Add first & last links
-        if (boundaryLinks) {
-          var firstPage = makePage(1, firstText, false, paginationCtrl.noPrevious());
-          pages.unshift(firstPage);
+          // Add previous & next links
+          if (directionLinks) {
+            var previousPage = makePage(currentPage - 1, previousText, false, paginationCtrl.noPrevious());
+            pages.unshift(previousPage);
 
-          var lastPage = makePage(totalPages, lastText, false, paginationCtrl.noNext());
-          pages.push(lastPage);
-        }
+            var nextPage = makePage(currentPage + 1, nextText, false, paginationCtrl.noNext());
+            pages.push(nextPage);
+          }
 
-        return pages;
-      };
-    }
-  };
-}])
+          // Add first & last links
+          if (boundaryLinks) {
+            var firstPage = makePage(1, firstText, false, paginationCtrl.noPrevious());
+            pages.unshift(firstPage);
 
-.constant('pagerConfig', {
-  itemsPerPage: 10,
-  previousText: '« Previous',
-  nextText: 'Next »',
-  align: true
-})
+            var lastPage = makePage(totalPages, lastText, false, paginationCtrl.noNext());
+            pages.push(lastPage);
+          }
 
-.directive('pager', ['pagerConfig', function(config) {
-  return {
-    restrict: 'EA',
-    scope: {
-      totalItems: '='
-    },
-    require: ['pager', '?ngModel'],
-    controller: 'PaginationController',
-    templateUrl: 'template/pagination/pager.html',
-    replace: true,
-    link: function(scope, element, attrs, ctrls) {
-      var paginationCtrl = ctrls[0], ngModel = ctrls[1];
-
-      if (!ngModel) {
-         return; // do nothing if no ng-model
-      }
-
-      // Setup configuration parameters
-      var previousText = paginationCtrl.getAttributeValue(attrs.previousText, config.previousText, true),
-      nextText         = paginationCtrl.getAttributeValue(attrs.nextText,     config.nextText,     true),
-      align            = paginationCtrl.getAttributeValue(attrs.align,        config.align);
-
-      paginationCtrl.init(ngModel, config.itemsPerPage);
-
-      // Create page object used in template
-      function makePage(number, text, isDisabled, isPrevious, isNext) {
-        return {
-          number: number,
-          text: text,
-          disabled: isDisabled,
-          previous: ( align && isPrevious ),
-          next: ( align && isNext )
+          return pages;
         };
       }
+    };
+  }])
 
-      paginationCtrl.getPages = function(currentPage) {
-        return [
-          makePage(currentPage - 1, previousText, paginationCtrl.noPrevious(), true, false),
-          makePage(currentPage + 1, nextText, paginationCtrl.noNext(), false, true)
-        ];
-      };
-    }
-  };
-}]);
+  .constant('pagerConfig', {
+    itemsPerPage: 10,
+    previousText: '« Previous',
+    nextText: 'Next »',
+    align: true
+  })
+
+  .directive('pager', ['pagerConfig', function(config) {
+    return {
+      restrict: 'EA',
+      scope: {
+        page: '=',
+        totalItems: '=',
+        onSelectPage:' &'
+      },
+      controller: 'PaginationController',
+      templateUrl: 'template/pagination/pager.html',
+      replace: true,
+      link: function(scope, element, attrs, paginationCtrl) {
+
+        // Setup configuration parameters
+        var previousText = paginationCtrl.getAttributeValue(attrs.previousText, config.previousText, true),
+          nextText         = paginationCtrl.getAttributeValue(attrs.nextText,     config.nextText,     true),
+          align            = paginationCtrl.getAttributeValue(attrs.align,        config.align);
+
+        paginationCtrl.init(config.itemsPerPage);
+
+        // Create page object used in template
+        function makePage(number, text, isDisabled, isPrevious, isNext) {
+          return {
+            number: number,
+            text: text,
+            disabled: isDisabled,
+            previous: ( align && isPrevious ),
+            next: ( align && isNext )
+          };
+        }
+
+        paginationCtrl.getPages = function(currentPage) {
+          return [
+            makePage(currentPage - 1, previousText, paginationCtrl.noPrevious(), true, false),
+            makePage(currentPage + 1, nextText, paginationCtrl.noNext(), false, true)
+          ];
+        };
+      }
+    };
+  }]);
 
 /**
  * The following features are still outstanding: animation as a
@@ -3163,89 +3148,63 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
              '$scope', '$compile', '$q', '$attrs', '$parse', '$element', '$position', 'typeaheadParser',
     function ($scope ,  $compile ,  $q ,  $attrs ,  $parse ,  $element ,  $position ,  typeaheadParser) {
 
-      // This is in isolate scope
-      var originalScope = $scope.$parent;
-
       var ctrl = this;
 
       //binding to a variable that indicates if matches are being retrieved asynchronously
-      ctrl.setIsLoading = angular.noop;
+      var isLoadingSetter = $parse($attrs.typeaheadLoading).assign || angular.noop;
 
       var appendToBody =  $attrs.typeaheadAppendToBody ? $scope.$eval($attrs.typeaheadAppendToBody) : false;
 
       //INTERNAL VARIABLES
 
-      //model setter executed upon match selection
-      var $setModelValue = $parse($attrs.ngModel).assign;
-
       //expressions used by typeahead
-      ctrl.parserResult = typeaheadParser.parse($attrs.typeahead);
+      var parserResult = typeaheadParser.parse($attrs.typeahead);
 
-      // Called with model, itemDetails (model, {item, model, label})
-      ctrl.selectListeners = [];
-
-      // Methods that are called on query similar to ngModelController.$parsers but supports
-      // promises.
-      ctrl.queryParsers = [];
-
-      // Check this value to see if it's the latest query
-      var lastQuery = null;
+      //create a child scope for the typeahead directive so we are not polluting original scope
+      //with typeahead-specific data (matches, query etc.)
+      var taScope = this.taScope = $scope.$new();
+      taScope.typeaheadCtrl = this;
 
       ctrl.setQuery = function (query) {
-        lastQuery = query;
+        ctrl.query = query;
         if (!query && query !== '') {
           resetMatches();
           return;
         }
-
-        var queryPromise = $q.when(query);
-
-        for (var i = 0; i < ctrl.queryParsers.length; i++) {
-          queryPromise = queryPromise.then(ctrl.queryParsers[i]);
-        }
-
-        queryPromise.then(function (value) {
-          // async query
-          if (query === lastQuery && typeof value !== 'undefined') {
-            ctrl.getMatches(value);
-          }
-        });
+        ctrl.getMatches(query);
       };
 
-      var lastMatchInputValue = null;
-
       ctrl.getMatches = function(inputValue) {
-        lastMatchInputValue = inputValue;
 
         var locals = {$viewValue: inputValue};
-        ctrl.setIsLoading(originalScope, true);
-        $q.when(ctrl.parserResult.source(originalScope, locals)).then(function(matches) {
+        isLoadingSetter($scope, true);
+        $q.when(parserResult.source($scope, locals)).then(function(matches) {
 
           //it might happen that several async queries were in progress if a user were typing fast
           //but we are interested only in responses that correspond to the current view value
-          if (inputValue === lastMatchInputValue) {
+          if (inputValue === ctrl.query) {
             if (matches.length > 0) {
 
-              $scope.active = 0;
-              $scope.matches.length = 0;
+              taScope.activeIdx = 0;
+              taScope.matches.length = 0;
 
               //transform labels
               for(var i=0; i<matches.length; i++) {
-                locals[ctrl.parserResult.itemName] = matches[i];
-                $scope.matches.push({
-                  label: ctrl.parserResult.viewMapper(originalScope, locals),
-                  model: ctrl.parserResult.modelMapper(originalScope, locals),
-                  item: matches[i]
+                locals[parserResult.itemName] = matches[i];
+                taScope.matches.push({
+                  label: parserResult.viewMapper($scope, locals),
+                  model: matches[i]
                 });
               }
 
-              $scope.query = inputValue;
+              taScope.query = inputValue;
               //position pop-up with matches - we need to re-calculate its position each time we are opening a window
               //with matches as a pop-up might be absolute-positioned and position of an input might have changed on a page
               //due to other elements being rendered
-              $scope.position = appendToBody ? $position.offset($element) : $position.position($element);
-              $scope.position.top += $element.prop('offsetHeight');
-              ctrl.setIsLoading(originalScope, false);
+              taScope.position = appendToBody ? $position.offset($element) : $position.position($element);
+              taScope.position = $position.position($element);
+              taScope.position.top = taScope.position.top + $element.prop('offsetHeight');
+              isLoadingSetter($scope, false);
             } else {
               resetMatches();
             }
@@ -3255,111 +3214,142 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
         });
       };
 
-      ctrl.inputFormatter = function (scope, locals) {
-        var candidateViewValue, emptyViewValue;
-
-        //it might happen that we don't have enough info to properly render input value
-        //we need to check for this situation and simply return model value if we can't apply custom formatting
-        locals[ctrl.parserResult.itemName] = locals.$model;
-        candidateViewValue = ctrl.parserResult.viewMapper(scope, locals);
-        locals[ctrl.parserResult.itemName] = undefined;
-        emptyViewValue = ctrl.parserResult.viewMapper(scope, locals);
-
-        return candidateViewValue !== emptyViewValue ? candidateViewValue : locals.$model;
-      };
-
-      ctrl.select = function (match) {
-        $setModelValue(originalScope, match.model);
-        resetMatches();
-
-        for (var i = 0; i < ctrl.selectListeners.length; i++) {
-          ctrl.selectListeners[i](match.model, match);
-        }
-
-        //return focus to the input element if a mach was selected via a mouse click event
-        $element[0].focus();
-      };
-
       resetMatches();
-
-      function resetMatches() {
-        lastQuery = null;
-        lastMatchInputValue = null;
-        $scope.matches = [];
-        $scope.active = -1;
-        ctrl.setIsLoading(originalScope, false);
-      }
-
-      ctrl._selectActive = function (activeIdx) {
-        if (typeof activeIdx != 'undefined') {
-          $scope.active = activeIdx;
-        }
-        ctrl.select($scope.matches[$scope.active]);
-      };
-
-      ctrl._nextMatch = function () {
-        $scope.active = ($scope.active + 1) % $scope.matches.length;
-      };
-
-      ctrl._prevMatch = function () {
-        $scope.active = ($scope.active ? $scope.active : $scope.matches.length) - 1;
-      };
 
       //pop-up element used to display matches
       var popUpEl = angular.element('<div typeahead-popup></div>');
+      popUpEl.attr({
+        typeaheadCtrl: 'typeaheadCtrl',
+        matches: 'matches',
+        active: 'activeIdx',
+        select: 'select(activeIdx)',
+        query: 'query',
+        position: 'position'
+      });
       //custom item template
       if (angular.isDefined($attrs.typeaheadTemplateUrl)) {
         popUpEl.attr('template-url', $attrs.typeaheadTemplateUrl);
       }
 
-      ctrl.popUpEl = $compile(popUpEl)($scope);
+      function resetMatches() {
+        taScope.matches = [];
+        taScope.activeIdx = -1;
+        isLoadingSetter($scope, false);
+      }
+
+      ctrl.popUpEl = $compile(popUpEl)(taScope);
     }
   ])
 
-  .directive('typeahead', ['$compile', '$parse', '$document', 'typeaheadParser',
-    function ($compile, $parse, $document, typeaheadParser) {
+  .directive('typeahead', ['$compile', '$parse', '$q', '$timeout', '$document', '$position', 'typeaheadParser',
+    function ($compile, $parse, $q, $timeout, $document, $position, typeaheadParser) {
 
   var HOT_KEYS = [9, 13, 27, 38, 40];
 
   return {
     require: ['typeahead', 'ngModel'],
     controller: 'TypeaheadController',
-    controllerAs: 'typeaheadCtrl',
-    scope: {},
-    link:function (scope, element, attrs, controllers) {
-
-      var originalScope = scope.$parent;
+    link:function (originalScope, element, attrs, controllers) {
 
       var typeaheadCtrl = controllers[0],
-          modelCtrl = controllers[1];
+          modelCtrl = controllers[1],
+          scope = typeaheadCtrl.taScope;
 
       //SUPPORTED ATTRIBUTES (OPTIONS)
+
+      //minimal no of characters that needs to be entered before typeahead kicks-in
+      var minSearch = originalScope.$eval(attrs.typeaheadMinLength) || 1;
+
+      //minimal wait time after last character typed before typehead kicks-in
+      var waitTime = originalScope.$eval(attrs.typeaheadWaitMs) || 0;
+
+      //a callback executed when a match is selected
+      var onSelectCallback = $parse(attrs.typeaheadOnSelect);
+
+      var inputFormatter = attrs.typeaheadInputFormatter ? $parse(attrs.typeaheadInputFormatter) : undefined;
 
       var appendToBody =  attrs.typeaheadAppendToBody ? originalScope.$eval(attrs.typeaheadAppendToBody) : false;
 
       //INTERNAL VARIABLES
 
-      //plug into modelCtrl pipeline to open a typeahead on view changes
-      modelCtrl._$setViewValue = modelCtrl.$setViewValue;
-      modelCtrl.$setViewValue = function (inputValue) {
+      //model setter executed upon match selection
+      var $setModelValue = $parse(attrs.ngModel).assign;
 
-        if (inputValue) {
-          typeaheadCtrl.setQuery(inputValue);
+      //expressions used by typeahead
+      var parserResult = typeaheadParser.parse(attrs.typeahead);
+
+      //we need to propagate user's query so we can higlight matches
+      scope.query = undefined;
+
+      //Declare the timeout promise var outside the function scope so that stacked calls can be cancelled later 
+      var timeoutPromise;
+
+      //plug into $parsers pipeline to open a typeahead on view changes initiated from DOM
+      //$parsers kick-in on all the changes coming from the view as well as manually triggered by $setViewValue
+      modelCtrl.$parsers.unshift(function (inputValue) {
+
+        if (inputValue && inputValue.length >= minSearch) {
+          if (waitTime > 0) {
+            if (timeoutPromise) {
+              $timeout.cancel(timeoutPromise);//cancel previous timeout
+            }
+            timeoutPromise = $timeout(function () {
+              typeaheadCtrl.setQuery(inputValue);
+            }, waitTime);
+          } else {
+            typeaheadCtrl.setQuery(inputValue);
+          }
         } else {
           resetMatches();
         }
 
-        return modelCtrl._$setViewValue(inputValue);
-      };
+        return inputValue;
+      });
 
       modelCtrl.$formatters.push(function (modelValue) {
 
-        var locals = {
-          $model: modelValue
-        };
+        var candidateViewValue, emptyViewValue;
+        var locals = {};
 
-        return typeaheadCtrl.inputFormatter(originalScope, locals);
+        if (inputFormatter) {
+
+          locals['$model'] = modelValue;
+          return inputFormatter(originalScope, locals);
+
+        } else {
+
+          //it might happen that we don't have enough info to properly render input value
+          //we need to check for this situation and simply return model value if we can't apply custom formatting
+          locals[parserResult.itemName] = modelValue;
+          candidateViewValue = parserResult.viewMapper(originalScope, locals);
+          locals[parserResult.itemName] = undefined;
+          emptyViewValue = parserResult.viewMapper(originalScope, locals);
+
+          return candidateViewValue!== emptyViewValue ? candidateViewValue : modelValue;
+        }
       });
+
+      scope.select = function (activeIdx) {
+        //called from within the $digest() cycle
+        var locals = {};
+        var model, item;
+
+        locals[parserResult.itemName] = item = scope.matches[activeIdx].model;
+        model = parserResult.modelMapper(originalScope, locals);
+        $setModelValue(originalScope, model);
+        modelCtrl.$setValidity('editable', true);
+
+        onSelectCallback(originalScope, {
+          $item: item,
+          $model: model,
+          $label: parserResult.viewMapper(originalScope, locals)
+        });
+
+        resetMatches();
+
+        //return focus to the input element if a mach was selected via a mouse click event
+        element[0].focus();
+      };
 
       //bind keyboard events: arrows up(38) / down(40), enter(13) and tab(9), esc(27)
       element.bind('keydown', function (evt) {
@@ -3372,16 +3362,16 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
         evt.preventDefault();
 
         if (evt.which === 40) {
-          typeaheadCtrl._nextMatch();
+          scope.activeIdx = (scope.activeIdx + 1) % scope.matches.length;
           scope.$digest();
 
         } else if (evt.which === 38) {
-          typeaheadCtrl._prevMatch();
+          scope.activeIdx = (scope.activeIdx ? scope.activeIdx : scope.matches.length) - 1;
           scope.$digest();
 
         } else if (evt.which === 13 || evt.which === 9) {
           scope.$apply(function () {
-            typeaheadCtrl._selectActive();
+            scope.select(scope.activeIdx);
           });
 
         } else if (evt.which === 27) {
@@ -3393,10 +3383,7 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
       });
 
       element.bind('blur', function () {
-        if (!scope.mouseIsOver) {
-          resetMatches();
-          scope.$digest();
-        }
+        resetMatches();
       });
 
       // Keep reference to click handler to unbind it.
@@ -3430,16 +3417,13 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
   .directive('typeaheadPopup', function () {
     return {
       restrict:'EA',
-      /*
       scope:{
         matches:'=',
         query:'=',
         active:'=',
         position:'=',
-        mouseIsOver:'=',
         select:'&'
       },
-       */
       replace:true,
       templateUrl:'template/typeahead/typeahead-popup.html',
       link:function (scope, element, attrs) {
@@ -3459,7 +3443,7 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
         };
 
         scope.selectMatch = function (activeIdx) {
-          scope.typeaheadCtrl._selectActive(activeIdx);
+          scope.select({activeIdx:activeIdx});
         };
       }
     };
@@ -3482,92 +3466,12 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
     };
   }])
 
-  .directive('typeaheadMinLength', [
-    function () {
-      return {
-        restrict: 'A',
-        require: 'typeahead',
-        link: function (scope, element, attrs, typeaheadCtrl) {
-
-          //minimal no of characters that needs to be entered before typeahead kicks-in
-          var minSearch = scope.$eval(attrs.typeaheadMinLength) || 1;
-
-          typeaheadCtrl.queryParsers.push(function (value) {
-            if (value.length >= minSearch) {
-              return value;
-            }
-          });
-
-        }
-      };
-    }
-  ])
-
-  .directive('typeaheadWaitMs', [
-             '$timeout',
-    function ($timeout) {
-      return {
-        restrict: 'A',
-        require: 'typeahead',
-        link: function (scope, element, attrs, typeaheadCtrl) {
-
-          //minimal wait time after last character typed before typehead kicks-in
-          var waitTime = scope.$eval(attrs.typeaheadWaitMs) || 0;
-
-          if (waitTime > 0) {
-            //Declare the timeout promise var outside the function scope so that stacked calls can be cancelled later
-            var timeoutPromise;
-
-            typeaheadCtrl.queryParsers.push(function (value) {
-              if (timeoutPromise) {
-                $timeout.cancel(timeoutPromise);//cancel previous timeout
-              }
-              timeoutPromise = $timeout(function () {
-                return value;
-              }, waitTime);
-              return timeoutPromise;
-            });
-          }
-
-        }
-      };
-    }
-  ])
-
-  .directive('typeaheadOnSelect', [
-             '$parse',
-    function ($parse) {
-      return {
-        restrict: 'A',
-        require: 'typeahead',
-        link: function (scope, element, attrs, typeaheadCtrl) {
-
-          //a callback executed when a match is selected
-          var onSelectCallback = $parse(attrs.typeaheadOnSelect);
-
-          typeaheadCtrl.selectListeners.push(function (model, match) {
-            onSelectCallback(scope, {
-              $item: match.item,
-              $model: match.model,
-              $label: match.label
-            });
-          });
-
-        }
-      };
-    }
-  ])
-
-
   .directive('typeaheadEditable', [
     function () {
       return {
         restrict: 'A',
-        require: ['ngModel', 'typeahead'],
-        link: function (scope, element, attrs, controllers) {
-
-          var ngModelCtrl = controllers[0],
-              typeaheadCtrl = controllers[1];
+        require: 'ngModel',
+        link: function (scope, element, attrs, ngModelCtrl) {
 
           //should it restrict model values to the ones selected from the popup only?
           var isEditable = scope.$eval(attrs.typeaheadEditable) !== false;
@@ -3587,38 +3491,6 @@ angular.module('ui.bootstrap.typeahead', ['ui.bootstrap.position', 'ui.bootstrap
               }
             }
           });
-
-          typeaheadCtrl.selectListeners.push(function () {
-            ngModelCtrl.$setValidity('editable', true);
-          });
-        }
-      };
-    }
-  ])
-
-  .directive('typeaheadInputFormatter', [
-             '$parse',
-    function ($parse) {
-      return {
-        restrict: 'A',
-        require: 'typeahead',
-        link: function (scope, element, attrs, typeaheadCtrl) {
-          if (attrs.typeaheadInputFormatter) {
-            typeaheadCtrl.inputFormatter = $parse(attrs.typeaheadInputFormatter);
-          }
-        }
-      };
-    }
-  ])
-
-  .directive('typeaheadLoading', [
-             '$parse',
-    function ($parse) {
-      return {
-        restrict: 'A',
-        require: 'typeahead',
-        link: function (scope, element, attrs, typeaheadCtrl) {
-          typeaheadCtrl.setIsLoading = $parse(attrs.typeaheadLoading).assign || angular.noop;
         }
       };
     }
